@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "250741619233",
+    "project_id": "shatter-4a5d2",
+    "storage_bucket": "shatter-4a5d2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:250741619233:android:09508653fe13146606c160",
+        "android_client_info": {
+          "package_name": "com.adil.shatter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoOHlzWCCLlvpeSfzn3CuU1JOqrgchFIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:250741619233:android:e05ee1ae15b8917906c160",
+        "android_client_info": {
+          "package_name": "com.example.shatter_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCoOHlzWCCLlvpeSfzn3CuU1JOqrgchFIY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
