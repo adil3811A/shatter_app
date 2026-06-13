@@ -18,162 +18,186 @@ class ShatterBottomNavBar extends StatefulWidget {
 
 class _ShatterBottomNavBarState extends State<ShatterBottomNavBar> {
   bool _isDragging = false;
+  bool _isAnimatingToTab = false;
   double _dragPosition = 0.0;
 
   @override
   Widget build(BuildContext context) {
     const double capsuleSize = 52.0;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double totalWidth = constraints.maxWidth;
-        final double itemWidth = totalWidth / 4;
-        final double minPos = (itemWidth - capsuleSize) / 2;
-        final double maxPos = 3 * itemWidth + minPos;
+    return AnimatedBuilder(
+      animation: widget.pageController,
+      builder: (context, child) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final double totalWidth = constraints.maxWidth;
+            final double itemWidth = totalWidth / 4;
+            final double minPos = (itemWidth - capsuleSize) / 2;
+            final double maxPos = 3 * itemWidth + minPos;
 
-        // Calculate current page offset (dragging vs pageController-driven)
-        double page = widget.currentIndex.toDouble();
-        if (_isDragging) {
-          page = (_dragPosition - minPos) / itemWidth;
-        } else if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
-          page = widget.pageController.page ?? widget.currentIndex.toDouble();
-        }
+            // Manual position mode is active during dragging or while snapping to a tab
+            final bool useManualPosition = _isDragging || _isAnimatingToTab;
 
-        final double leftPosition = _isDragging 
-            ? _dragPosition 
-            : (page * itemWidth + minPos);
+            // Calculate current page offset (0.0 to 3.0)
+            double page = widget.currentIndex.toDouble();
+            if (useManualPosition) {
+              page = (_dragPosition - minPos) / itemWidth;
+            } else if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
+              page = widget.pageController.page ?? widget.currentIndex.toDouble();
+            }
 
-        return GestureDetector(
-          // Intercept horizontal drag gestures on the entire bottom bar
-          onHorizontalDragStart: (details) {
-            setState(() {
-              _isDragging = true;
-              // Initialize drag position to match the current selection position
-              double currentPage = widget.currentIndex.toDouble();
-              if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
-                currentPage = widget.pageController.page ?? widget.currentIndex.toDouble();
-              }
-              _dragPosition = currentPage * itemWidth + minPos;
-            });
-          },
-          onHorizontalDragUpdate: (details) {
-            setState(() {
-              _dragPosition = (_dragPosition + details.delta.dx).clamp(minPos, maxPos);
-              
-              // Scroll the PageView in sync with the drag position
-              if (widget.pageController.hasClients) {
-                final double dragPage = (_dragPosition - minPos) / itemWidth;
-                final double screenWidth = MediaQuery.of(context).size.width;
-                widget.pageController.jumpTo(dragPage * screenWidth);
-              }
-            });
-          },
-          onHorizontalDragEnd: (details) {
-            setState(() {
-              _isDragging = false;
-              // Snap to the closest tab index upon release
-              final double normalized = (_dragPosition - minPos) / itemWidth;
-              final int targetIndex = normalized.round().clamp(0, 3);
-              widget.onTap(targetIndex);
-            });
-          },
-          child: Container(
-            height: 84,
-            decoration: BoxDecoration(
-              color: const Color(0xFF161320), // Dark background matching screenshot
-              borderRadius: BorderRadius.circular(42),
-              border: Border.all(
-                color: const Color(0xFF242038).withOpacity(0.5),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // Sliding active indicator capsule (background of the icon)
-                Positioned(
-                  left: leftPosition,
-                  top: 10, // Vertically centered with the icons
-                  child: Container(
-                    width: capsuleSize,
-                    height: capsuleSize,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF3B2F57), // Deep purple/violet capsule
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6D28D9).withOpacity(0.3),
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
+            final double leftPosition = useManualPosition 
+                ? _dragPosition 
+                : (page * itemWidth + minPos);
+
+            // Capsule moves instantly when dragging or swiping, but slides smoothly when snapping on release
+            final Duration animationDuration = _isAnimatingToTab 
+                ? const Duration(milliseconds: 250) 
+                : Duration.zero;
+
+            return GestureDetector(
+              // Intercept horizontal drag gestures on the entire bottom bar
+              onHorizontalDragStart: (details) {
+                setState(() {
+                  _isDragging = true;
+                  _isAnimatingToTab = false;
+                  // Initialize drag position to match the current selection position
+                  double currentPage = widget.currentIndex.toDouble();
+                  if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
+                    currentPage = widget.pageController.page ?? widget.currentIndex.toDouble();
+                  }
+                  _dragPosition = currentPage * itemWidth + minPos;
+                });
+              },
+              onHorizontalDragUpdate: (details) {
+                setState(() {
+                  _dragPosition = (_dragPosition + details.delta.dx).clamp(minPos, maxPos);
+                });
+              },
+              onHorizontalDragEnd: (details) {
+                // Calculate snapping index upon release
+                final double normalized = (_dragPosition - minPos) / itemWidth;
+                final int targetIndex = normalized.round().clamp(0, 3);
+                
+                setState(() {
+                  _isAnimatingToTab = true;
+                  _dragPosition = targetIndex * itemWidth + minPos; // Target snap coordinate
+                });
+
+                // Trigger screen page animation AFTER the user finishes dragging
+                widget.onTap(targetIndex);
+
+                // Re-enable pageController-driven tracking after transitions settle (300ms)
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted) {
+                    setState(() {
+                      _isAnimatingToTab = false;
+                      _isDragging = false;
+                    });
+                  }
+                });
+              },
+              child: Container(
+                height: 84,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161320), // Dark background matching screenshot
+                  borderRadius: BorderRadius.circular(42),
+                  border: Border.all(
+                    color: const Color(0xFF242038).withOpacity(0.5),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
                 ),
-
-                // Items Row
-                Row(
-                  children: List.generate(4, (index) {
-                    // Calculate how close the indicator is to this tab (0.0 to 1.0)
-                    final double distance = (page - index).abs();
-                    final double activeProgress = (1.0 - distance).clamp(0.0, 1.0);
-
-                    // Color interpolation based on indicator proximity
-                    final Color iconColor = Color.lerp(
-                      const Color(0xFF7C758E), // Inactive grey-purple
-                      Colors.white,           // Active white
-                      activeProgress,
-                    )!;
-
-                    final Color textColor = Color.lerp(
-                      const Color(0xFF7C758E), // Inactive grey-purple
-                      const Color(0xFFD8B4FE), // Active soft lavender
-                      activeProgress,
-                    )!;
-
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (!_isDragging) {
-                            widget.onTap(index);
-                          }
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: capsuleSize,
-                              height: capsuleSize,
-                              alignment: Alignment.center,
-                              child: _buildIconForIndex(index, iconColor, activeProgress),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _getLabelForIndex(index),
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 11,
-                                fontWeight: activeProgress > 0.5
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
+                child: Stack(
+                  children: [
+                    // Sliding active indicator capsule (background of the icon)
+                    AnimatedPositioned(
+                      duration: animationDuration,
+                      curve: Curves.easeOutCubic,
+                      left: leftPosition,
+                      top: 10, // Vertically centered with the icons
+                      child: Container(
+                        width: capsuleSize,
+                        height: capsuleSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF3B2F57), // Deep purple/violet capsule
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6D28D9).withOpacity(0.3),
+                              blurRadius: 10,
+                              spreadRadius: 1,
                             ),
                           ],
                         ),
                       ),
-                    );
-                  }),
+                    ),
+
+                    // Items Row
+                    Row(
+                      children: List.generate(4, (index) {
+                        // Calculate how close the indicator is to this tab (0.0 to 1.0)
+                        final double distance = (page - index).abs();
+                        final double activeProgress = (1.0 - distance).clamp(0.0, 1.0);
+
+                        // Color interpolation based on indicator proximity
+                        final Color iconColor = Color.lerp(
+                          const Color(0xFF7C758E), // Inactive grey-purple
+                          Colors.white,           // Active white
+                          activeProgress,
+                        )!;
+
+                        final Color textColor = Color.lerp(
+                          const Color(0xFF7C758E), // Inactive grey-purple
+                          const Color(0xFFD8B4FE), // Active soft lavender
+                          activeProgress,
+                        )!;
+
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              if (!_isDragging && !_isAnimatingToTab) {
+                                widget.onTap(index);
+                              }
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: capsuleSize,
+                                  height: capsuleSize,
+                                  alignment: Alignment.center,
+                                  child: _buildIconForIndex(index, iconColor, activeProgress),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _getLabelForIndex(index),
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 11,
+                                    fontWeight: activeProgress > 0.5
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
