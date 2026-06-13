@@ -69,8 +69,8 @@ class _ShatterAppShellState extends State<ShatterAppShell> {
         // If not on Chats, intercept and navigate back to Chats
         _pageController.animateToPage(
           0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
         );
         setState(() {
           _currentIndex = 0;
@@ -105,8 +105,8 @@ class _ShatterAppShellState extends State<ShatterAppShell> {
                 });
                 _pageController.animateToPage(
                   index,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
                 );
               },
             ),
