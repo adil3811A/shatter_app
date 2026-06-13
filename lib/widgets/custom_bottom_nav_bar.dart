@@ -23,226 +23,244 @@ class _ShatterBottomNavBarState extends State<ShatterBottomNavBar> {
 
   @override
   Widget build(BuildContext context) {
-    const double capsuleSize = 52.0;
+    const double barHeight = 62.0;
+    const double capsuleHeight = 46.0;
+    const double horizontalMargin = 6.0; // Dynamic margin on each side of the capsule
 
-    return AnimatedBuilder(
-      animation: widget.pageController,
-      builder: (context, child) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final double totalWidth = constraints.maxWidth;
-            final double itemWidth = totalWidth / 4;
-            final double minPos = (itemWidth - capsuleSize) / 2;
-            final double maxPos = 3 * itemWidth + minPos;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    // Account for padding surrounding the bar: 16px on each side (total 32px)
+    double barWidth = screenWidth - 32;
+    if (barWidth > 400.0) {
+      barWidth = 400.0; // Keep it clean and centered on tablets/wide screens
+    }
 
-            // Manual position mode is active during dragging or while snapping to a tab
-            final bool useManualPosition = _isDragging || _isAnimatingToTab;
-
-            // Calculate current page offset (0.0 to 3.0)
-            double page = widget.currentIndex.toDouble();
-            if (useManualPosition) {
-              page = (_dragPosition - minPos) / itemWidth;
-            } else if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
-              page = widget.pageController.page ?? widget.currentIndex.toDouble();
-            }
-
-            final double leftPosition = useManualPosition 
-                ? _dragPosition 
-                : (page * itemWidth + minPos);
-
-            // Capsule moves instantly when dragging or swiping, but slides smoothly when snapping on release
-            final Duration animationDuration = _isAnimatingToTab 
-                ? const Duration(milliseconds: 250) 
-                : Duration.zero;
-
-            return GestureDetector(
-              // Intercept horizontal drag gestures on the entire bottom bar
-              onHorizontalDragStart: (details) {
-                setState(() {
-                  _isDragging = true;
-                  _isAnimatingToTab = false;
-                  // Initialize drag position to match the current selection position
-                  double currentPage = widget.currentIndex.toDouble();
-                  if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
-                    currentPage = widget.pageController.page ?? widget.currentIndex.toDouble();
-                  }
-                  _dragPosition = currentPage * itemWidth + minPos;
-                });
-              },
-              onHorizontalDragUpdate: (details) {
-                setState(() {
-                  _dragPosition = (_dragPosition + details.delta.dx).clamp(minPos, maxPos);
-                });
-              },
-              onHorizontalDragEnd: (details) {
-                // Calculate snapping index upon release
-                final double normalized = (_dragPosition - minPos) / itemWidth;
-                final int targetIndex = normalized.round().clamp(0, 3);
+    return Align(
+      alignment: Alignment.bottomCenter,
+      heightFactor: 1.0,
+      child: SizedBox(
+        width: barWidth,
+        child: AnimatedBuilder(
+          animation: widget.pageController,
+          builder: (context, child) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final double totalWidth = constraints.maxWidth;
+                final double itemWidth = totalWidth / 4;
                 
-                setState(() {
-                  _isAnimatingToTab = true;
-                  _dragPosition = targetIndex * itemWidth + minPos; // Target snap coordinate
-                });
+                // Boundary coordinates for selection capsule
+                final double minPos = horizontalMargin;
+                final double maxPos = 3 * itemWidth + horizontalMargin;
 
-                // Trigger screen page animation AFTER the user finishes dragging
-                widget.onTap(targetIndex);
+                // Calculate active page offset (dragging vs pageController-driven)
+                final bool useManualPosition = _isDragging || _isAnimatingToTab;
+                double page = widget.currentIndex.toDouble();
+                if (useManualPosition) {
+                  page = (_dragPosition - minPos) / itemWidth;
+                } else if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
+                  page = widget.pageController.page ?? widget.currentIndex.toDouble();
+                }
 
-                // Re-enable pageController-driven tracking after transitions settle (300ms)
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  if (mounted) {
+                final double leftPosition = useManualPosition 
+                    ? _dragPosition 
+                    : (page * itemWidth + minPos);
+
+                final double capsuleWidth = itemWidth - (horizontalMargin * 2);
+
+                // Capsule moves instantly when dragging, but snaps/slides quickly when released or page changes
+                final Duration animationDuration = _isAnimatingToTab 
+                    ? const Duration(milliseconds: 150) 
+                    : Duration.zero;
+
+                return GestureDetector(
+                  // Intercept horizontal drag gestures on the entire bottom bar
+                  onHorizontalDragStart: (details) {
                     setState(() {
+                      _isDragging = true;
                       _isAnimatingToTab = false;
-                      _isDragging = false;
+                      // Initialize drag position to match the current selection position
+                      double currentPage = widget.currentIndex.toDouble();
+                      if (widget.pageController.hasClients && widget.pageController.position.hasContentDimensions) {
+                        currentPage = widget.pageController.page ?? widget.currentIndex.toDouble();
+                      }
+                      _dragPosition = currentPage * itemWidth + minPos;
                     });
-                  }
-                });
-              },
-              child: Container(
-                height: 84,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF161320), // Dark background matching screenshot
-                  borderRadius: BorderRadius.circular(42),
-                  border: Border.all(
-                    color: const Color(0xFF242038).withOpacity(0.5),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    // Sliding active indicator capsule (background of the icon)
-                    AnimatedPositioned(
-                      duration: animationDuration,
-                      curve: Curves.easeOutCubic,
-                      left: leftPosition,
-                      top: 10, // Vertically centered with the icons
-                      child: Container(
-                        width: capsuleSize,
-                        height: capsuleSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF3B2F57), // Deep purple/violet capsule
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF6D28D9).withOpacity(0.3),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    setState(() {
+                      _dragPosition = (_dragPosition + details.delta.dx).clamp(minPos, maxPos);
+                    });
+                  },
+                  onHorizontalDragEnd: (details) {
+                    // Calculate snapping index upon release
+                    final double normalized = (_dragPosition - minPos) / itemWidth;
+                    final int targetIndex = normalized.round().clamp(0, 3);
+                    
+                    setState(() {
+                      _isAnimatingToTab = true;
+                      _dragPosition = targetIndex * itemWidth + minPos; // Target snap coordinate
+                    });
+
+                    // Trigger screen page animation AFTER the user finishes dragging
+                    widget.onTap(targetIndex);
+
+                    // Re-enable pageController-driven tracking after transitions settle (200ms)
+                    Future.delayed(const Duration(milliseconds: 200), () {
+                      if (mounted) {
+                        setState(() {
+                          _isAnimatingToTab = false;
+                          _isDragging = false;
+                        });
+                      }
+                    });
+                  },
+                  child: Container(
+                    height: barHeight,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF161320), // Dark background matching screenshot
+                      borderRadius: BorderRadius.circular(barHeight / 2),
+                      border: Border.all(
+                        color: const Color(0xFF242038).withOpacity(0.5),
+                        width: 1.5,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
                     ),
-
-                    // Items Row
-                    Row(
-                      children: List.generate(4, (index) {
-                        // Calculate how close the indicator is to this tab (0.0 to 1.0)
-                        final double distance = (page - index).abs();
-                        final double activeProgress = (1.0 - distance).clamp(0.0, 1.0);
-
-                        // Color interpolation based on indicator proximity
-                        final Color iconColor = Color.lerp(
-                          const Color(0xFF7C758E), // Inactive grey-purple
-                          Colors.white,           // Active white
-                          activeProgress,
-                        )!;
-
-                        final Color textColor = Color.lerp(
-                          const Color(0xFF7C758E), // Inactive grey-purple
-                          const Color(0xFFD8B4FE), // Active soft lavender
-                          activeProgress,
-                        )!;
-
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              if (!_isDragging && !_isAnimatingToTab) {
-                                widget.onTap(index);
-                              }
-                            },
-                            behavior: HitTestBehavior.opaque,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: capsuleSize,
-                                  height: capsuleSize,
-                                  alignment: Alignment.center,
-                                  child: _buildIconForIndex(index, iconColor, activeProgress),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _getLabelForIndex(index),
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 11,
-                                    fontWeight: activeProgress > 0.5
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
+                    child: Stack(
+                      children: [
+                        // Sliding active indicator capsule (background enclosing both icon & text)
+                        AnimatedPositioned(
+                          duration: animationDuration,
+                          curve: Curves.easeOutCubic,
+                          left: leftPosition,
+                          top: (barHeight - capsuleHeight) / 2, // Centered vertically
+                          child: Container(
+                            width: capsuleWidth,
+                            height: capsuleHeight,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(capsuleHeight / 2),
+                              color: const Color(0xFF8B5CF6).withOpacity(0.15), // Translucent violet brand highlight
+                              border: Border.all(
+                                color: const Color(0xFF8B5CF6).withOpacity(0.25),
+                                width: 1,
+                              ),
                             ),
                           ),
-                        );
-                      }),
+                        ),
+
+                        // Items Row
+                        Row(
+                          children: List.generate(4, (index) {
+                            // Calculate how close the indicator is to this tab (0.0 to 1.0)
+                            final double distance = (page - index).abs();
+                            final double activeProgress = (1.0 - distance).clamp(0.0, 1.0);
+
+                            // Interpolate colors: inactive grey-purple to active violet/lavender
+                            final Color iconColor = Color.lerp(
+                              const Color(0xFF7C758E), // Inactive grey-purple
+                              const Color(0xFF8B5CF6), // Active violet
+                              activeProgress,
+                            )!;
+
+                            final Color textColor = Color.lerp(
+                              const Color(0xFF7C758E), // Inactive grey-purple
+                              const Color(0xFFD8B4FE), // Active soft lavender
+                              activeProgress,
+                            )!;
+
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (!_isDragging && !_isAnimatingToTab) {
+                                    widget.onTap(index);
+                                  }
+                                },
+                                behavior: HitTestBehavior.opaque,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      height: 24, // Reduced icon height boundary
+                                      alignment: Alignment.center,
+                                      child: _buildIconForIndex(index, iconColor, activeProgress),
+                                    ),
+                                    const SizedBox(height: 1), // Reduced gap
+                                    Text(
+                                      _getLabelForIndex(index),
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontSize: 10, // Sleeker font size
+                                        fontWeight: activeProgress > 0.5
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _buildIconForIndex(int index, Color color, double activeProgress) {
+    // Determine whether to use a filled icon for active or outlined icon for inactive
+    final bool isActive = activeProgress > 0.5;
+
     switch (index) {
       case 0:
         return Icon(
-          Icons.chat_bubble_outline_rounded,
+          isActive ? Icons.chat_bubble_rounded : Icons.chat_bubble_outline_rounded,
           color: color,
-          size: 24,
+          size: 20, // Reduced icon size
         );
       case 1:
         return Icon(
-          Icons.account_circle_outlined,
+          isActive ? Icons.account_circle_rounded : Icons.account_circle_outlined,
           color: color,
-          size: 25,
+          size: 21, // Reduced icon size
         );
       case 2:
         return Icon(
-          Icons.settings_outlined,
+          isActive ? Icons.settings_rounded : Icons.settings_outlined,
           color: color,
-          size: 24,
+          size: 20, // Reduced icon size
         );
       case 3:
       default:
         // Stylized Profile Icon representing the letter Z inside a circle
+        // Blend opacity between active and inactive states
         return Opacity(
-          opacity: 0.6 + (0.4 * activeProgress),
+          opacity: 0.75 + (0.25 * activeProgress),
           child: Container(
-            width: 23,
-            height: 23,
+            width: 20, // Reduced profile size
+            height: 20, // Reduced profile size
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF8B5CF6), // Violet brand logo background
+              color: Color(0xFF8B5CF6), // Brand violet logo background matching active theme
             ),
             alignment: Alignment.center,
             child: const Text(
-              'Z',
+              'z', // Lowercase 'z' as seen in the new screenshot
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 10, // Sleeker font size
                 fontWeight: FontWeight.w900,
-                height: 1.1,
+                height: 1.0,
               ),
             ),
           ),
