@@ -5,6 +5,10 @@ import 'screens/contacts_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/profile_screen.dart';
 
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'data/services/auth_service.dart';
+import 'screens/login_screen.dart';
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -23,7 +27,24 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const ShatterAppShell(),
+      home: StreamBuilder<firebase_auth.User?>(
+        stream: AuthService().authStateChanges,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
+                ),
+              ),
+            );
+          }
+          if (snapshot.hasData && snapshot.data != null) {
+            return const ShatterAppShell();
+          }
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }

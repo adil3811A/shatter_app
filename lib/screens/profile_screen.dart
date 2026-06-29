@@ -1,11 +1,42 @@
 import 'package:flutter/material.dart';
 import '../utils/env.dart' as env;
+import '../data/models/user_session.dart';
+import '../data/services/local_storage_service.dart';
+import '../data/services/auth_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  UserSession? _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final session = await LocalStorageService().getSession();
+    if (mounted) {
+      setState(() {
+        _session = session;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final displayName = _session?.displayName ?? 'Julian Vane';
+    final username = _session?.username ?? 'julian_stealth';
+    final initials = displayName.length >= 2 
+        ? displayName.substring(0, 2).toUpperCase() 
+        : displayName.substring(0, 1).toUpperCase();
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0E13),
       body: SafeArea(
@@ -69,15 +100,15 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         child: CircleAvatar(
                           radius: 48,
-                          backgroundImage: env.isTesting
+                          backgroundImage: env.isTesting || _session != null
                               ? null
                               : const NetworkImage(
                                   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
                                 ),
-                          child: env.isTesting
-                              ? const Text(
-                                  'JV',
-                                  style: TextStyle(
+                          child: env.isTesting || _session != null
+                              ? Text(
+                                  initials,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -93,18 +124,18 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 54), // Spacing for offset avatar
 
               // Name & Username
-              const Text(
-                'Julian Vane',
-                style: TextStyle(
+              Text(
+                displayName,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                '@julian_stealth',
-                style: TextStyle(
+              Text(
+                '@$username',
+                style: const TextStyle(
                   color: Color(0xFF7C758E),
                   fontSize: 15,
                 ),
@@ -226,7 +257,19 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await AuthService().logout();
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Logout failed: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),

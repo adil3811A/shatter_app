@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/env.dart' as env;
+import '../data/models/user_session.dart';
+import '../data/services/local_storage_service.dart';
 
 // Custom high-fidelity switch toggle matching the design
 class ShatterSwitch extends StatelessWidget {
@@ -54,6 +56,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _locationServices = false;
   bool _activeStatus = true;
   bool _pushNotifications = true;
+  UserSession? _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final session = await LocalStorageService().getSession();
+    if (mounted) {
+      setState(() {
+        _session = session;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -301,6 +319,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProfileCard() {
+    final displayName = _session?.displayName ?? 'Julian Vane';
+    final username = _session?.username ?? 'julian_stealth';
+    final initials = displayName.length >= 2 
+        ? displayName.substring(0, 2).toUpperCase() 
+        : displayName.substring(0, 1).toUpperCase();
+
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -319,15 +343,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               CircleAvatar(
                 radius: 28,
                 backgroundColor: const Color(0xFF242038),
-                backgroundImage: env.isTesting
+                backgroundImage: env.isTesting || _session != null
                     ? null
                     : const NetworkImage(
                         'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
                       ),
-                child: env.isTesting
-                    ? const Text(
-                        'JV',
-                        style: TextStyle(
+                child: env.isTesting || _session != null
+                    ? Text(
+                        initials,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
@@ -357,19 +381,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Julian Vane',
-                  style: TextStyle(
+                  displayName,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '@julian_stealth',
-                  style: TextStyle(
+                  '@$username',
+                  style: const TextStyle(
                     color: Color(0xFF7C758E),
                     fontSize: 14,
                   ),
