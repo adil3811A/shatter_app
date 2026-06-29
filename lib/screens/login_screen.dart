@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/services/auth_service.dart';
+import '../utils/error_handler.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Success will automatically update authStateChanges listener and redirect the user.
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = ErrorHandler.getErrorMessage(e);
       });
     } finally {
       if (mounted) {
