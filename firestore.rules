@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users can only read/write their own user document
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // User profiles
+    match /user_profiles/{userId} {
+      allow read: if request.auth != null;  // Anyone authenticated can read profiles
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Conversations
+    match /conversations/{conversationId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+      allow update: if request.auth != null && request.auth.uid in resource.data.participants;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.sender_id;
+        allow update: if request.auth != null && request.auth.uid == resource.data.sender_id;
+        allow delete: if request.auth != null && request.auth.uid == resource.data.sender_id;
+      }
+    }
+    
+    // Device tokens
+    match /device_tokens/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+    }
+    
+    // Call records
+    match /call_records/{callId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.caller_id || request.auth.uid == resource.data.receiver_id);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.caller_id;
+    }
+  }
+}
